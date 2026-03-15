@@ -63,12 +63,19 @@ def salvar_no_banco(df, username):
 
 def carregar_do_banco(username):
     conn = sqlite3.connect('finance.db')
-    query = "SELECT Data, Descricao, Valor, Categoria FROM transacoes WHERE usuario_id = ?"
+    # Importante: agora pegamos o ID para poder deletar
+    query = "SELECT id, Data, Descricao, Valor, Categoria FROM transacoes WHERE usuario_id = ?"
     df = pd.read_sql(query, conn, params=(username,))
     conn.close()
     if not df.empty:
         df['Data'] = pd.to_datetime(df['Data'])
     return df
+
+def deletar_transacao(id_transacao):
+    conn = sqlite3.connect('finance.db')
+    conn.execute("DELETE FROM transacoes WHERE id = ?", (id_transacao,))
+    conn.commit()
+    conn.close()
 
 def login_usuario(usuario, senha):
     conn = sqlite3.connect('finance.db')
@@ -81,12 +88,10 @@ def login_usuario(usuario, senha):
 def cadastrar_usuario(usuario, senha):
     conn = sqlite3.connect('finance.db')
     cursor = conn.cursor()
-    # Verifica se o usuário já existe antes de tentar inserir
     cursor.execute('SELECT username FROM usuarios WHERE username = ?', (usuario,))
     if cursor.fetchone():
         conn.close()
-        return False # Usuário já existe
-    
+        return False
     try:
         cursor.execute('INSERT INTO usuarios (username, password) VALUES (?, ?)', (usuario, hash_senha(senha)))
         conn.commit()
