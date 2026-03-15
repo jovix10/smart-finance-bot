@@ -13,9 +13,23 @@ def definir_categoria(descricao):
         'FIXO': ['ALUGUEL', 'LUZ', 'INTERNET', 'CONDOMINIO']
     }
     for categoria, palavras in regras.items():
-        if any(palavra in desc for keyword in palavras if (palavra := keyword) in desc):
+        if any(keyword in desc for keyword in palavras):
             return categoria
     return 'OUTROS'
+
+def obter_icone(categoria):
+    # Mapeamento para ícones do Streamlit (Material Icons)
+    icones = {
+        'ALIMENTACAO': 'restaurant',
+        'SUPERMERCADO': 'shopping_cart',
+        'TRANSPORTE': 'directions_car',
+        'ASSINATURAS': 'subscriptions',
+        'SAUDE': 'medical_services',
+        'LAZER': 'local_play',
+        'FIXO': 'home_work',
+        'OUTROS': 'payments'
+    }
+    return icones.get(categoria, 'payments')
 
 def processar_dados(file):
     try:
@@ -44,7 +58,6 @@ def gerar_pdf(df, usuario):
     pdf.cell(190, 10, f"Gasto Total: R$ {df['Valor'].sum():,.2f}", ln=True)
     pdf.ln(5)
     
-    # Cabeçalho da Tabela
     pdf.set_font("Arial", 'B', 10)
     pdf.cell(30, 10, "Data", 1)
     pdf.cell(80, 10, "Descricao", 1)

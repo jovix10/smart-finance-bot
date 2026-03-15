@@ -8,7 +8,6 @@ def hash_senha(senha):
 def configurar_banco():
     conn = sqlite3.connect('finance.db')
     cursor = conn.cursor()
-    # Tabela de usuários com Salário
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS usuarios (
             username TEXT PRIMARY KEY,
@@ -16,7 +15,6 @@ def configurar_banco():
             salario REAL DEFAULT 0
         )
     ''')
-    # Tabela de metas
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS metas (
             usuario_id TEXT,
@@ -25,7 +23,6 @@ def configurar_banco():
             PRIMARY KEY (usuario_id, categoria)
         )
     ''')
-    # Tabela de transações
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS transacoes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,11 +80,18 @@ def login_usuario(usuario, senha):
 
 def cadastrar_usuario(usuario, senha):
     conn = sqlite3.connect('finance.db')
+    cursor = conn.cursor()
+    # Verifica se o usuário já existe antes de tentar inserir
+    cursor.execute('SELECT username FROM usuarios WHERE username = ?', (usuario,))
+    if cursor.fetchone():
+        conn.close()
+        return False # Usuário já existe
+    
     try:
-        conn.execute('INSERT INTO usuarios (username, password) VALUES (?, ?)', (usuario, hash_senha(senha)))
+        cursor.execute('INSERT INTO usuarios (username, password) VALUES (?, ?)', (usuario, hash_senha(senha)))
         conn.commit()
         return True
-    except:
+    except Exception:
         return False
     finally:
         conn.close()
