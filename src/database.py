@@ -8,14 +8,24 @@ def hash_senha(senha):
 def configurar_banco():
     conn = sqlite3.connect('finance.db')
     cursor = conn.cursor()
-    # Tabela de usuários
+    # Tabela de usuários com Salário
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS usuarios (
             username TEXT PRIMARY KEY,
-            password TEXT
+            password TEXT,
+            salario REAL DEFAULT 0
         )
     ''')
-    # Tabela de transações com coluna de dono (usuario_id)
+    # Tabela de metas
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS metas (
+            usuario_id TEXT,
+            categoria TEXT,
+            valor_limite REAL,
+            PRIMARY KEY (usuario_id, categoria)
+        )
+    ''')
+    # Tabela de transações
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS transacoes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -30,51 +40,54 @@ def configurar_banco():
     conn.commit()
     conn.close()
 
+def atualizar_salario(username, novo_salario):
+    conn = sqlite3.connect('finance.db')
+    conn.execute("UPDATE usuarios SET salario = ? WHERE username = ?", (novo_salario, username))
+    conn.commit()
+    conn.close()
+
+def definir_meta(username, categoria, limite):
+    conn = sqlite3.connect('finance.db')
+    conn.execute("INSERT OR REPLACE INTO metas VALUES (?, ?, ?)", (username, categoria, limite))
+    conn.commit()
+    conn.close()
+
+def carregar_metas(username):
+    conn = sqlite3.connect('finance.db')
+    df = pd.read_sql("SELECT categoria, valor_limite FROM metas WHERE usuario_id = ?", conn, params=(username,))
+    conn.close()
+    return df
+
 def salvar_no_banco(df, username):
     conn = sqlite3.connect('finance.db')
-    # Adiciona a coluna do dono antes de salvar
     df['usuario_id'] = username
-    # Salva no banco (append)
     df.to_sql('transacoes', conn, if_exists='append', index=False)
-    
-    # Limpeza de duplicatas apenas para este usuário específico
-    query = f"DELETE FROM transacoes WHERE rowid NOT IN (SELECT min(rowid) FROM transacoes GROUP BY usuario_id, Data, Descricao, Valor)"
-    conn.execute(query)
-    conn.commit()
     conn.close()
 
 def carregar_do_banco(username):
     conn = sqlite3.connect('finance.db')
-    try:
-        # O PULO DO GATO: Filtramos os dados pelo usuário logado
-        query = "SELECT Data, Descricao, Valor, Categoria FROM transacoes WHERE usuario_id = ?"
-        df = pd.read_sql(query, conn, params=(username,))
+    query = "SELECT Data, Descricao, Valor, Categoria FROM transacoes WHERE usuario_id = ?"
+    df = pd.read_sql(query, conn, params=(username,))
+    conn.close()
+    if not df.empty:
         df['Data'] = pd.to_datetime(df['Data'])
-        return df
-    except:
-        return pd.DataFrame()
-    finally:
-        conn.close()
-
-# Funções de Auth
-def cadastrar_usuario(usuario, senha):
-    conn = sqlite3.connect('finance.db')
-    cursor = conn.cursor()
-    try:
-        cursor.execute('INSERT INTO usuarios (username, password) VALUES (?, ?)', 
-                       (usuario, hash_senha(senha)))
-        conn.commit()
-        return True
-    except sqlite3.IntegrityError:
-        return False
-    finally:
-        conn.close()
+    return df
 
 def login_usuario(usuario, senha):
     conn = sqlite3.connect('finance.db')
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM usuarios WHERE username = ? AND password = ?', 
-                   (usuario, hash_senha(senha)))
+    cursor.execute('SELECT username FROM usuarios WHERE username = ? AND password = ?', (usuario, hash_senha(senha)))
     res = cursor.fetchone()
     conn.close()
     return res
+
+def cadastrar_usuario(usuario, senha):
+    conn = sqlite3.connect('finance.db')
+    try:
+        conn.execute('INSERT INTO usuarios (username, password) VALUES (?, ?)', (usuario, hash_senha(senha)))
+        conn.commit()
+        return True
+    except:
+        return False
+    finally:
+        conn.close()
